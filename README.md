@@ -1,4 +1,4 @@
-# Panduan Setup Proyek PHP Native
+# Panduan Setup Proyek
 
 ## Persyaratan
 - PHP versi 8.2.17 atau lebih baru
