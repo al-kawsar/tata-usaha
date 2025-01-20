@@ -23,10 +23,8 @@ function escape_string($string) {
     return mysqli_real_escape_string($conn, $string);
 }
 
-// Session handling
-session_start();
+// session_start();
 
-// Check if user is logged in
 function check_login() {
     if (!isset($_SESSION['user_id'])) {
         header("Location: login.php");
