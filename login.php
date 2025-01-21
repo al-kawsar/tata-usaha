@@ -1,23 +1,59 @@
-
 <?php
 include 'config.php';
+session_start();
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
+// Aktifkan mode exceptions untuk menangani error dari MySQLi
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-    $stmt = $conn->prepare("SELECT * FROM users WHERE username = :username");
-    $stmt->bindParam(':username', $username);
-    $stmt->execute();
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+// Fungsi untuk memverifikasi login berdasarkan jenis pengguna
+function verifyLogin($username, $password, $table, $usernameField, $role) {
+    global $conn;
 
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['user_id'] = $user['id'];
-        header("Location: dashboard.php");
-        exit();
+    $query = "SELECT * FROM $table WHERE $usernameField = '$username'";
+    $result = $conn->query($query);
+
+    if ($result->num_rows > 0) {
+        $user = $result->fetch_assoc();
+        if (password_verify($password, $user['password'])) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['name'] = $user['name'];
+            $_SESSION['username'] = $user[$usernameField];
+            $_SESSION['role'] = $role;
+            header("Location: /");  // Redirect ke halaman sesuai role
+            exit();
+        } else {
+            return "Username atau password salah!";
+        }
     } else {
-        $error = "Username atau password salah!";
+        return "Username atau password salah!";
     }
+}
+
+try {
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        // Escape input untuk menghindari SQL injection
+        $username = mysqli_real_escape_string($conn, trim($_POST['username']));
+        $password = trim($_POST['password']);
+
+        // Filter untuk mencocokkan input berdasarkan format yang diharapkan
+        if (filter_var($username, FILTER_VALIDATE_EMAIL)) {
+            // Login sebagai admin
+            $error = verifyLogin($username, $password, 'users', 'username', 'admin');
+        } elseif (is_numeric($username) && strlen($username) >= 8) {
+            // Login sebagai guru (NIP)
+            $error = verifyLogin($username, $password, 'guru', 'nip', 'guru');
+        } elseif (is_numeric($username) && (strlen($username) == 10 || strlen($username) == 12)) {
+            // Login sebagai siswa (NISN atau NIS)
+            $error = verifyLogin($username, $password, 'siswa', 'nisn', 'siswa');
+        } else {
+            // Jika input tidak sesuai format yang diharapkan
+            $error = "Username tidak valid!";
+        }
+    }
+} catch (mysqli_sql_exception $e) {
+    $error = "Terjadi kesalahan: " . $e->getMessage();
+} catch (Exception $e) {
+    $error = "Terjadi kesalahan tak terduga: " . $e->getMessage();
 }
 ?>
 
@@ -65,7 +101,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
               >
               Login
           </h1>
-          <label class="block text-sm">
+
+          <?php if (isset($error)) : ?>
+            <div class="mb-4 text-sm text-red-700 bg-red-100 border border-red-400 rounded-lg dark:bg-red-700 dark:text-red-100 dark:border-red-500 p-4">
+                <span class="font-medium">Error:</span> <?= htmlspecialchars($error); ?>
+            </div>
+        <?php endif; ?>
+
+
+        <label class="block text-sm">
             <span class="text-gray-700 dark:text-gray-400">Username</span>
             <input
             name="username"
